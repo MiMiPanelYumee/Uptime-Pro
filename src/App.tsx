@@ -82,58 +82,66 @@ export default function App() {
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if ("Notification" in window) {
-      Notification.requestPermission();
+    // Safely request notification permission
+    if (typeof window !== 'undefined' && "Notification" in window) {
+      Notification.requestPermission().catch(() => {});
     }
 
     const connect = () => {
-      const backendUrl = "ais-dev-lukrjoaz3mf3qkg4g2oamk-147485490409.asia-east1.run.app";
-      const socket = new WebSocket(`wss://${backendUrl}`);
-      
-      socket.onopen = () => setWsConnected(true);
-      socket.onclose = () => {
-        setWsConnected(false);
-        setTimeout(connect, 3000);
-      };
-      
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data) as ServerEvent;
-        switch (data.type) {
-          case 'INITIAL_STATE':
-            setMonitors(data.monitors);
-            setLogs(data.logs);
-            setSettings(data.settings);
-            break;
-          case 'MONITOR_UPDATED':
-            setMonitors(prev => {
-              const existing = prev.find(m => m.id === data.monitor.id);
-              if (existing && existing.status !== data.monitor.status && data.monitor.status !== 'pending') {
-                if (Notification.permission === "granted") {
-                  new Notification(`Monitor Alert: ${data.monitor.name}`, {
-                    body: `Status is now ${data.monitor.status.toUpperCase()}`,
-                    icon: 'https://picsum.photos/100/100'
-                  });
-                }
-              }
-              const exists = prev.some(m => m.id === data.monitor.id);
-              if (!exists) return [...prev, data.monitor];
-              return prev.map(m => m.id === data.monitor.id ? data.monitor : m);
-            });
-            break;
-          case 'NEW_LOG':
-            setLogs(prev => {
-              const exists = prev.some(l => l.id === data.log.id);
-              if (exists) return prev;
-              return [data.log, ...prev].slice(0, 100);
-            });
-            break;
-          case 'SETTINGS_UPDATED':
-            setSettings(data.settings);
-            break;
-        }
-      };
-      
-      ws.current = socket;
+      try {
+        const backendUrl = "ais-dev-lukrjoaz3mf3qkg4g2oamk-147485490409.asia-east1.run.app";
+        const socket = new WebSocket(`wss://${backendUrl}`);
+        
+        socket.onopen = () => setWsConnected(true);
+        socket.onclose = () => {
+          setWsConnected(false);
+          setTimeout(connect, 5000);
+        };
+        
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data) as ServerEvent;
+            switch (data.type) {
+              case 'INITIAL_STATE':
+                setMonitors(data.monitors || []);
+                setLogs(data.logs || []);
+                setSettings(data.settings);
+                break;
+              case 'MONITOR_UPDATED':
+                setMonitors(prev => {
+                  const existing = prev.find(m => m.id === data.monitor.id);
+                  if (existing && existing.status !== data.monitor.status && data.monitor.status !== 'pending') {
+                    if (typeof window !== 'undefined' && "Notification" in window && Notification.permission === "granted") {
+                      new Notification(`Alert: ${data.monitor.name}`, {
+                        body: `Status: ${data.monitor.status.toUpperCase()}`,
+                      });
+                    }
+                  }
+                  const exists = prev.some(m => m.id === data.monitor.id);
+                  if (!exists) return [...prev, data.monitor];
+                  return prev.map(m => m.id === data.monitor.id ? data.monitor : m);
+                });
+                break;
+              case 'NEW_LOG':
+                setLogs(prev => {
+                  const exists = prev.some(l => l.id === data.log.id);
+                  if (exists) return prev;
+                  return [data.log, ...prev].slice(0, 100);
+                });
+                break;
+              case 'SETTINGS_UPDATED':
+                setSettings(data.settings);
+                break;
+            }
+          } catch (e) {
+            console.error("Parse error", e);
+          }
+        };
+        ws.current = socket;
+      } catch (e) {
+        console.error("Connect error", e);
+        setTimeout(connect, 5000);
+      }
     };
 
     connect();
@@ -605,65 +613,29 @@ export default function App() {
                 </form>
 
                 <div className="mt-8 pt-6 border-t border-white/5 space-y-4">
-                  <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/20 space-y-2">
-                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Native APK Build:</h4>
+                  <div className="bg-rose-500/10 rounded-xl p-4 border border-rose-500/20 space-y-2">
+                    <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">🚨 SOLUSI LAYAR PUTIH (WAJIB):</h4>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Aplikasi ini sudah dikonfigurasi dengan <b>Capacitor</b> untuk menjadi APK Android Native.
+                      Layar putih terjadi karena folder <b>dist</b> kosong. Ikuti urutan ini agar 100% berhasil:
                     </p>
                     <ol className="text-[9px] text-slate-500 list-decimal pl-4 space-y-1">
-                      <li>Download source code project ini.</li>
-                      <li>Install Android Studio di PC Anda.</li>
-                      <li>Jalankan <code className="text-indigo-300">npm run cap:build</code>.</li>
-                      <li>Jalankan <code className="text-indigo-300">npx cap open android</code> untuk build APK.</li>
+                      <li>Jalankan: <code className="text-white">npm run build</code> (Wajib untuk membuat file dashboard).</li>
+                      <li>Jalankan: <code className="text-white">npx cap sync</code> (Wajib untuk menyalin file ke Android).</li>
+                      <li>Buka Android Studio dan <b>Build APK</b>.</li>
                     </ol>
+                    <p className="text-[9px] text-rose-300 italic mt-2">
+                      *Tanpa langkah 1 & 2, APK akan selalu layar putih karena tidak ada isinya.
+                    </p>
                   </div>
 
                   <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/20 space-y-2">
                     <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">📦 Paket Lengkap APK Gradle:</h4>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Semua file yang diperlukan sudah siap. Anda tidak perlu bingung lagi, cukup gunakan folder ini:
+                      Semua file yang diperlukan sudah siap (Folder /android, /java, /src).
                     </p>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-[9px] text-slate-400">
-                        <div className="w-1 h-1 rounded-full bg-indigo-500" />
-                        <span><b>/android</b> - Folder Build Gradle & Manifest</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[9px] text-slate-400">
-                        <div className="w-1 h-1 rounded-full bg-indigo-500" />
-                        <span><b>/java</b> - File Foreground Service & Auto-Start</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[9px] text-slate-400">
-                        <div className="w-1 h-1 rounded-full bg-indigo-500" />
-                        <span><b>/src</b> - Dashboard Neon Futuristik</span>
-                      </div>
-                    </div>
                     <p className="text-[9px] text-indigo-300 font-bold mt-2">
                       💡 Tips: Klik tombol "Download Project" di menu AI Studio untuk mendapatkan semua file ini dalam satu folder ZIP.
                     </p>
-                  </div>
-
-                  <div className="bg-rose-500/10 rounded-xl p-4 border border-rose-500/20 space-y-2">
-                    <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">⚠️ Solusi Layar Putih (White Screen):</h4>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Jika APK Anda layar putih, itu karena file web belum terhubung dengan benar. Saya sudah memperbaikinya:
-                    </p>
-                    <ul className="text-[9px] text-slate-500 list-disc pl-4 space-y-1">
-                      <li><b>Vite Config</b>: Sudah saya set ke <i>Relative Path</i> agar file terbaca di HP.</li>
-                      <li><b>WebSocket</b>: Sudah saya kunci ke URL server agar APK bisa konek dari mana saja.</li>
-                      <li><b>Solusi</b>: Silakan download ulang project ini dan build ulang APK-nya.</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 space-y-2">
-                    <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">📱 Mobile App Mode (Tanpa PC):</h4>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Karena Anda menggunakan HP, Anda bisa menginstall aplikasi ini langsung tanpa APK:
-                    </p>
-                    <ul className="text-[9px] text-slate-500 list-disc pl-4 space-y-1">
-                      <li>Klik ikon <b>Titik Tiga (⋮)</b> di pojok kanan atas browser Chrome Anda.</li>
-                      <li>Pilih <b>"Tambahkan ke Layar Utama"</b> (Add to Home Screen).</li>
-                      <li>Aplikasi akan muncul di menu HP Anda dengan ikon dan berjalan full-screen seperti aplikasi native!</li>
-                    </ul>
                   </div>
                 </div>
               </GlassCard>
